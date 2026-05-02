@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام الحضور والانصراف</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent-in: #00d4aa;
+    --accent-out: #ff6b6b;
+    --accent-warn: #ffd93d;
+    --text: #e8f0fe;
+    --text-muted: #6b7a99;
+    --glow-in: rgba(0, 212, 170, 0.15);
+    --glow-out: rgba(255, 107, 107, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(0,212,170,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(255,107,107,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .logo-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-in), #0099ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 30px;
+    box-shadow: 0 0 30px rgba(0,212,170,0.3);
+    animation: pulse-ring 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 30px rgba(0,212,170,0.3); }
+    50%       { box-shadow: 0 0 50px rgba(0,212,170,0.6); }
+  }
+
+  .header h1 { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+  .header p  { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+  /* CARD */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--accent-in);
+    border-radius: 2px;
+  }
+
+  /* SELECT */
+  .select-wrapper { position: relative; }
+  select {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  select:focus { outline: none; border-color: var(--accent-in); box-shadow: 0 0 0 3px var(--glow-in); }
+  .select-wrapper::after {
+    content: '▾';
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  /* STATUS ROW */
+  .status-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .status-item {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+  .status-label { font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; }
+  .status-value { font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--text); word-break: break-all; }
+  .status-value.ok   { color: var(--accent-in); }
+  .status-value.fail { color: var(--accent-out); }
+  .status-value.warn { color: var(--accent-warn); }
+
+  /* LOCATION BAR */
+  .location-bar {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+  }
+  .location-bar .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .location-bar.ok   .dot { background: var(--accent-in); box-shadow: 0 0 8px var(--accent-in); }
+  .location-bar.fail .dot { background: var(--accent-out); }
+  .location-bar.warn .dot { background: var(--accent-warn); }
+  .location-text { color: var(--text-muted); font-size: 12px; }
+
+  /* BUTTONS */
+  .btn-group { display: flex; gap: 12px; margin-top: 8px; }
+
+  .btn {
+    flex: 1;
+    padding: 18px;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 17px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 1px;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+  .btn:not(:disabled):active { transform: scale(0.97); }
+
+  .btn-in {
+    background: linear-gradient(135deg, var(--accent-in), #00b894);
+    color: #001a14;
+    box-shadow: 0 4px 20px rgba(0,212,170,0.3);
+  }
+  .btn-in:not(:disabled):hover { box-shadow: 0 6px 30px rgba(0,212,170,0.5); transform: translateY(-2px); }
+
+  .btn-out {
+    background: linear-gradient(135deg, var(--accent-out), #c0392b);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(255,107,107,0.3);
+  }
+  .btn-out:not(:disabled):hover { box-shadow: 0 6px 30px rgba(255,107,107,0.5); transform: translateY(-2px); }
+
+  .btn-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: scale(0);
+    animation: ripple 0.5s linear;
+    pointer-events: none;
+  }
+  @keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 50%;
+    transform: translateX(50%) translateY(100px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    max-width: 340px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .toast.show { transform: translateX(50%) translateY(0); }
+  .toast.success { border-color: var(--accent-in); color: var(--accent-in); }
+  .toast.error   { border-color: var(--accent-out); color: var(--accent-out); }
+  .toast.warning { border-color: var(--accent-warn); color: var(--accent-warn); }
+  .toast-icon { font-size: 20px; }
+
+  /* LOADING SPINNER */
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* CLOCK */
+  .clock {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: var(--text);
+    margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .date-str {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+
+  /* HISTORY */
+  .history-list { max-height: 140px; overflow-y: auto; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 8px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-badge {
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-in  { background: var(--glow-in);  color: var(--accent-in);  border: 1px solid var(--accent-in); }
+  .badge-out { background: var(--glow-out); color: var(--accent-out); border: 1px solid var(--accent-out); }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-ring">🏭</div>
+    <h1>نظام الحضور والانصراف</h1>
+    <p>Lab Attendance System</p>
+  </div>
+
+  <!-- CLOCK -->
+  <div class="clock" id="clock">00:00:00</div>
+  <div class="date-str" id="dateStr">---</div>
+
+  <!-- EMPLOYEE CARD -->
+  <div class="card">
+    <div class="card-title">بيانات الموظف</div>
+    <div class="select-wrapper">
+      <select id="employeeSelect">
+        <option value="">— اختر اسمك —</option>
+        <!-- ✏️ أضف أسماء الموظفين هنا -->
+        <option value="أحمد محمد">أحمد محمد</option>
+        <option value="سارة علي">سارة علي</option>
+        <option value="محمود حسن">محمود حسن</option>
+        <option value="منى إبراهيم">منى إبراهيم</option>
+        <option value="عمر خالد">عمر خالد</option>
+      </select>
+    </div>
+    <div class="status-row">
+      <div class="status-item">
+        <div class="status-label">بصمة الجهاز</div>
+        <div class="status-value" id="uuidDisplay">جارٍ التحميل…</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">حالة الاتصال</div>
+        <div class="status-value" id="netStatus">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCATION CARD -->
+  <div class="card">
+    <div class="card-title">الموقع الجغرافي</div>
+    <div class="location-bar" id="locationBar">
+      <div class="dot"></div>
+      <div class="location-text" id="locationText">اضغط "تحديد الموقع" للبدء</div>
+    </div>
+    <button class="btn btn-in" style="margin-top:12px;width:100%;padding:12px;" onclick="getLocation()">
+      📍 تحديد الموقع
+    </button>
+  </div>
+
+  <!-- ACTION CARD -->
+  <div class="card">
+    <div class="card-title">تسجيل الحضور / الانصراف</div>
+    <div class="btn-group">
+      <button class="btn btn-in"  id="btnIn"  onclick="submitAttendance('حضور')"  disabled>✅ حضور</button>
+      <button class="btn btn-out" id="btnOut" onclick="submitAttendance('انصراف')" disabled>🚪 انصراف</button>
+    </div>
+  </div>
+
+  <!-- HISTORY CARD -->
+  <div class="card">
+    <div class="card-title">سجل اليوم (محلي)</div>
+    <div class="history-list" id="historyList">
+      <div class="empty-state">لا توجد سجلات بعد</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+/* ============================================================
+   ⚙️  الإعدادات — عدّل القيم دي بس
+   ============================================================ */
+const CONFIG = {
+  // ✏️ حط رابط الـ Apps Script بعد النشر هنا
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwn1dWeHwznTGSKynXLpPGyL7be3V3mCakOcM3uJ4HMt1uMuwSiX0frYI0kfC5_oL421A/exec",
+
+  // ✏️ إحداثيات مركز المعمل (Latitude, Longitude)
+  LAB_LAT: 30.0444,
+  LAB_LON: 31.2357,
+
+  // ✏️ نصف القطر المسموح به بالمتر (مثلاً 150 متر)
+  GEOFENCE_RADIUS: 999999,
+};
+/* ============================================================ */
+
+// -------- STATE --------
+let deviceUUID = "";
+let currentLat  = null;
+let currentLon  = null;
+let locationOK  = false;
+
+// -------- INIT --------
+window.onload = () => {
+  startClock();
+  initUUID();
+  checkNetwork();
+  loadHistory();
+};
+
+// -------- CLOCK --------
+function startClock() {
+  const tick = () => {
+    const now = new Date();
+    document.getElementById("clock").textContent =
+      now.toLocaleTimeString("ar-EG", { hour12: false });
+    document.getElementById("dateStr").textContent =
+      now.toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+// -------- UUID / Device Fingerprint --------
+function initUUID() {
+  let uuid = localStorage.getItem("att_device_uuid");
+  if (!uuid) {
+    uuid = crypto.randomUUID ? crypto.randomUUID() : generateUUID();
+    localStorage.setItem("att_device_uuid", uuid);
+  }
+  deviceUUID = uuid;
+  const shortUUID = uuid.slice(0, 8).toUpperCase();
+  const el = document.getElementById("uuidDisplay");
+  el.textContent = shortUUID;
+  el.classList.add("ok");
+}
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// -------- NETWORK --------
+function checkNetwork() {
+  const el = document.getElementById("netStatus");
+  if (navigator.onLine) { el.textContent = "متصل ✓"; el.className = "status-value ok"; }
+  else                  { el.textContent = "غير متصل ✗"; el.className = "status-value fail"; }
+  window.addEventListener("online",  () => { el.textContent = "متصل ✓";     el.className = "status-value ok"; });
+  window.addEventListener("offline", () => { el.textContent = "غير متصل ✗"; el.className = "status-value fail"; });
+}
+
+// -------- GPS + GEOFENCING --------
+function getLocation() {
+  const bar  = document.getElementById("locationBar");
+  const text = document.getElementById("locationText");
+  text.textContent = "جارٍ تحديد الموقع…";
+  bar.className = "location-bar";
+
+  if (!navigator.geolocation) {
+    showToast("المتصفح لا يدعم GPS", "error");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      currentLat = pos.coords.latitude;
+      currentLon = pos.coords.longitude;
+      const dist = haversineDistance(currentLat, currentLon, CONFIG.LAB_LAT, CONFIG.LAB_LON);
+      locationOK = dist <= CONFIG.GEOFENCE_RADIUS;
+
+      if (locationOK) {
+        bar.className = "location-bar ok";
+        text.textContent = `✅ داخل النطاق — المسافة: ${Math.round(dist)} متر`;
+        showToast("أنت داخل نطاق المعمل ✅", "success");
+        enableButtons(true);
+      } else {
+        bar.className = "location-bar fail";
+        text.textContent = `❌ خارج النطاق — المسافة: ${Math.round(dist)} متر`;
+        showToast(`أنت خارج النطاق بـ ${Math.round(dist)} متر ❌`, "error");
+        enableButtons(false);
+      }
+    },
+    err => {
+      bar.className = "location-bar fail";
+      text.textContent = "فشل تحديد الموقع — تأكد من إذن GPS";
+      showToast("فشل تحديد الموقع", "error");
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// Haversine formula (meters)
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// -------- ENABLE BUTTONS --------
+function enableButtons(state) {
+  document.getElementById("btnIn").disabled  = !state;
+  document.getElementById("btnOut").disabled = !state;
+}
+
+// -------- SUBMIT --------
+async function submitAttendance(type) {
+  const name = document.getElementById("employeeSelect").value.trim();
+  if (!name) { showToast("اختار اسمك الأول!", "warning"); return; }
+  if (!locationOK) { showToast("تأكيد الموقع مطلوب أولاً", "warning"); return; }
+
+  const btnId = type === "حضور" ? "btnIn" : "btnOut";
+  const btn = document.getElementById(btnId);
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `جارٍ الإرسال <span class="spinner"></span>`;
+
+  const payload = {
+    name,
+    type,
+    uuid: deviceUUID,
+    lat:  currentLat,
+    lon:  currentLon,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      mode: "no-cors",   // مطلوب مع Apps Script
+    });
+
+    // مع no-cors مش هنقدر نقرأ الـ response، بس لو وصل يعني تمام
+    showToast(`تم تسجيل ${type} بنجاح ✅`, "success");
+    addToHistory(name, type, new Date());
+  } catch (err) {
+    showToast("خطأ في الإرسال — تحقق من الإنترنت", "error");
+    console.error(err);
+  } finally {
+    btn.innerHTML = origHTML;
+    btn.disabled = false;
+  }
+}
+
+// -------- LOCAL HISTORY --------
+function addToHistory(name, type, date) {
+  const key = "att_history_" + new Date().toDateString();
+  const history = JSON.parse(localStorage.getItem(key) || "[]");
+  history.unshift({ name, type, time: date.toLocaleTimeString("ar-EG", { hour12: false }) });
+  localStorage.setItem(key, JSON.stringify(history.slice(0, 20)));
+  renderHistory(history);
+}
+
+function loadHistory() {
+  const key = "att_history_" + new Date().toDateString();
+  const history = JSON.parse(localStorage.getItem(key) || "[]");
+  renderHistory(history);
+}
+
+function renderHistory(history) {
+  const el = document.getElementById("historyList");
+  if (!history.length) {
+    el.innerHTML = '<div class="empty-state">لا توجد سجلات اليوم</div>';
+    return;
+  }
+  el.innerHTML = history.map(h => `
+    <div class="history-item">
+      <span>${h.name}</span>
+      <span class="history-badge ${h.type === 'حضور' ? 'badge-in' : 'badge-out'}">${h.type}</span>
+      <span style="color:var(--text-muted);font-size:12px">${h.time}</span>
+    </div>
+  `).join("");
+}
+
+// -------- TOAST --------
+let toastTimer;
+function showToast(msg, type = "success") {
+  const icons = { success: "✅", error: "❌", warning: "⚠️" };
+  const toast = document.getElementById("toast");
+  document.getElementById("toastMsg").textContent  = msg;
+  document.getElementById("toastIcon").textContent = icons[type] || "ℹ️";
+  toast.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = `toast ${type}`; }, 3500);
+}
+
+// -------- RIPPLE --------
+document.querySelectorAll(".btn").forEach(btn => {
+  btn.addEventListener("click", function(e) {
+    const r = document.createElement("span");
+    r.className = "btn-ripple";
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+    this.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  });
+});
+</script>
+</body>
+</html>
